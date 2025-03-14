@@ -69,7 +69,12 @@ fun main() {
     f("USERINFO_ALLOWED_CHARS") { isUnreserved(it) || isSubDelims(it) }
     f("USERNAME_ALLOWED_CHARS") { isUnreserved(it) || isSubDelims(it) || it == ':' }
     f("QUERY_ALLOWED_CHARS") { isUnreserved(it) || it == ':' || isSubDelims(it) || it == '/' || it == '?' || it == '@' }
+    f("QUERY_ARG_ALLOWED_CHARS") {
+        val c = charArrayOf('=', '&')
+        it !in c && (isUnreserved(it) || it == ':' || isSubDelims(it) || it == '/' || it == '?' || it == '@')
+    }
     f("FRAGMENT_ALLOWED_CHARS") { isUnreserved(it) || it == ':' || isSubDelims(it) || it == '/' || it == '?' || it == '@' }
     f("IPVFUTURE_ALLOWED_CHARS") { isUnreserved(it) || it == ':' || isSubDelims(it) }
     f("SEGMENT_ALLOWED_CHARS") { isUnreserved(it) || isSubDelims(it) || it == '@' || it == ':' }
+    f("PATH_ALLOWED_CHARS") { isUnreserved(it) || isSubDelims(it) || it == '@' || it == ':' || it == '/' }
 }

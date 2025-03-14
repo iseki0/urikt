@@ -206,12 +206,16 @@ private val USERNAME_ALLOWED_CHARS_L = 0b001011111111111101111111110100100000000
 private val USERNAME_ALLOWED_CHARS_H = 0b0100011111111111111111111111111010000111111111111111111111111110uL
 private val QUERY_ALLOWED_CHARS_L = 0b1010111111111111111111111101001000000000000000000000000000000000uL
 private val QUERY_ALLOWED_CHARS_H = 0b0100011111111111111111111111111010000111111111111111111111111111uL
+private val QUERY_ARG_ALLOWED_CHARS_L = 0b1000111111111111111111111001001000000000000000000000000000000000uL
+private val QUERY_ARG_ALLOWED_CHARS_H = 0b0100011111111111111111111111111010000111111111111111111111111111uL
 private val FRAGMENT_ALLOWED_CHARS_L = 0b1010111111111111111111111101001000000000000000000000000000000000uL
 private val FRAGMENT_ALLOWED_CHARS_H = 0b0100011111111111111111111111111010000111111111111111111111111111uL
 private val IPVFUTURE_ALLOWED_CHARS_L = 0b0010111111111111011111111101001000000000000000000000000000000000uL
 private val IPVFUTURE_ALLOWED_CHARS_H = 0b0100011111111111111111111111111010000111111111111111111111111110uL
 private val SEGMENT_ALLOWED_CHARS_L = 0b0010111111111111011111111101001000000000000000000000000000000000uL
 private val SEGMENT_ALLOWED_CHARS_H = 0b0100011111111111111111111111111010000111111111111111111111111111uL
+private val PATH_ALLOWED_CHARS_L = 0b0010111111111111111111111101001000000000000000000000000000000000uL
+private val PATH_ALLOWED_CHARS_H = 0b0100011111111111111111111111111010000111111111111111111111111111uL
 
 /**
  * Checks if a character matches the given bit masks.
@@ -508,12 +512,14 @@ private class Parser(val input: String) {
 
 class UriBuilder {
     private var schema: String = ""
-    private var host: String = ""
+    private var host: String? = null
     private var port = -1
-    private var userinfo = ""
+    private var userinfo: String? = null
     private val query = mutableListOf<String>()
     private var rawQuery: String? = null
     private var fragment: String? = null
+    private val pathSegments = mutableListOf<String>()
+    private var rawPath: String? = null
 
     /**
      * Specify schema part of the URI
@@ -529,7 +535,7 @@ class UriBuilder {
         require(schema.all { it.match(SCHEMA_SUFFIX_H, SCHEMA_SUFFIX_L) }) {
             "Schema can only contains letters, digits, '+', '-', and '.'"
         }
-        this.schema = schema
+        this.schema = schema.lowercase()
     }
 
     /**
@@ -584,18 +590,20 @@ class UriBuilder {
         val isIPv6 = host.startsWith('[') && host.endsWith(']')
         if (isIPv6) {
             val range = 1..<host.lastIndex
-            check(isValidVFuture(host, range) || isValidIPv6(host, range)) {
+            require(isValidVFuture(host, range) || isValidIPv6(host, range)) {
                 "Invalid IPv6 or IPvFuture address"
             }
         } else if (!encode) {
-            check(isValidIPv4(host, host.indices) || isValidRegName(host, host.indices)) {
+            require(isValidIPv4(host, host.indices) || isValidRegName(host, host.indices)) {
                 "Invalid IPv4 or registered name"
             }
         }
         // Even the RFC suggest to encode the host name in INDA format,
         // but since we can't ensure here's a domain name, we'd better use the safe way.
         // Maybe we can do some detection in the build stage?(Such as to detect the schema)
-        this.host = host.escapeIf(encode && !isIPv6, HOST_ALLOWED_CHARS_H, HOST_ALLOWED_CHARS_L)
+        // Normalize host to lowercase as per RFC 3986
+        val normalizedHost = if (!isIPv6) host.lowercase() else host
+        this.host = normalizedHost.escapeIf(encode && !isIPv6, HOST_ALLOWED_CHARS_H, HOST_ALLOWED_CHARS_L)
     }
 
 
@@ -610,8 +618,8 @@ class UriBuilder {
      * @param value the value of the query argument
      */
     fun addQuery(key: String, value: String) = apply {
-        val ek = key.escape(QUERY_ALLOWED_CHARS_H, QUERY_ALLOWED_CHARS_L)
-        val ev = value.escape(QUERY_ALLOWED_CHARS_H, QUERY_ALLOWED_CHARS_L)
+        val ek = key.escape(QUERY_ARG_ALLOWED_CHARS_H, QUERY_ARG_ALLOWED_CHARS_L)
+        val ev = value.escape(QUERY_ARG_ALLOWED_CHARS_H, QUERY_ARG_ALLOWED_CHARS_L)
         query.add("$ek=$ev")
         rawQuery = null
     }
@@ -648,19 +656,96 @@ class UriBuilder {
      * @throws IllegalArgumentException if the port is invalid
      */
     fun withPort(port: Int) = apply {
-        require(port in 0..65536) { "Port must be in the range of 0 to 65535" }
+        require(port in 0..65535) { "Port must be in the range of 0 to 65535" }
         this.port = port
     }
 
+    /**
+     * Add a path segment to the URI
+     *
+     * The path segment will be percent-encoded.
+     *
+     * @param segment the path segment to add
+     */
     fun addPathSegment(segment: String) = apply {
-        TODO()
+        pathSegments.add(segment)
+        rawPath = null
     }
 
+    /**
+     * Specify the path part of the URI
+     *
+     * Path segments added by [addPathSegment] will be cleared.
+     *
+     * @param path the path part of the URI
+     */
     fun withRawPath(path: String) = apply {
-        TODO()
+        this.rawPath = path.escape(PATH_ALLOWED_CHARS_H, PATH_ALLOWED_CHARS_L)
+        this.pathSegments.clear()
     }
 
-    fun build(): Uri = TODO()
+    /**
+     * Build the URI using the configured components.
+     *
+     * @return The built URI
+     */
+    fun build(): Uri {
+        return buildString {
+            if (schema.isNotEmpty()) {
+                append(schema)
+                append(':')
+            }
+            val hasAuthorize = userinfo != null || host != null
+            if (hasAuthorize) {
+                append("//")
+                if (!userinfo.isNullOrEmpty()) {
+                    append(userinfo)
+                    append('@')
+                }
+                if (host != null) {
+                    append(host)
+                }
+                if (port != -1) {
+                    append(':')
+                    append(port)
+                }
+            }
+            if (rawPath != null) {
+                if (hasAuthorize) {
+                    append('/')
+                }
+                append(rawPath)
+            } else {
+                for ((i, s) in pathSegments.withIndex()) {
+                    if (i != 0 || hasAuthorize) {
+                        append('/')
+                    }
+                    val encoded = if (i == 1 && schema.isEmpty()) {
+                        s.escape(SEGMENT_ALLOWED_CHARS_H, SEGMENT_ALLOWED_CHARS_L).replace(":", "%3A")
+                    } else {
+                        s.escape(SEGMENT_ALLOWED_CHARS_H, SEGMENT_ALLOWED_CHARS_L)
+                    }
+                    append(encoded)
+                }
+            }
+            if (rawQuery != null) {
+                append('?')
+                append(rawQuery)
+            } else {
+                if (query.isNotEmpty()) {
+                    append('?')
+                    for ((i, s) in query.withIndex()) {
+                        if (i != 0) append('&')
+                        append(s)
+                    }
+                }
+            }
+            if (fragment != null) {
+                append('#')
+                append(fragment)
+            }
+        }.let { Uri(it) }
+    }
 
 
 }
@@ -760,8 +845,9 @@ internal fun isValidRegName(s: String, range: IntRange): Boolean {
  * @return true if the string is a valid IPvFuture address, false otherwise
  */
 internal fun isValidVFuture(s: String, range: IntRange): Boolean {
-    if (s.length < 4 || s[0] != 'v') return false
-    var i = 1
+    if (range.isEmpty()) return false
+    if (range.last - range.first + 1 < 4 || s[range.first] != 'v') return false
+    var i = 1 + range.first
     while (true) {
         if (i >= range.last) return false
         if (s[i] == '.' && i != 1) break

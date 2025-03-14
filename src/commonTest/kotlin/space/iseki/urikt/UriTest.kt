@@ -79,7 +79,8 @@ class UriTest {
             "vA.!$&'()*+,;=:",       // allowed sub-delims and colon after the dot
             "v0.~:_",               // mix of unreserved (~, _) and colon
             // Mix of allowed characters: digits, unreserved and sub-delims
-            "v1.0-9_~abc"           // valid: "0-9_~abc" are all in allowed sets
+            "v1.0-9_~abc",          // valid: "0-9_~abc" are all in allowed sets
+            "v1.fe80::1"
         ).forEach { address ->
             assertTrue(isValidVFuture(address, address.indices), "Expected valid IPvFuture: $address")
         }
