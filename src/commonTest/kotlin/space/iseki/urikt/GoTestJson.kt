@@ -38,6 +38,8 @@
  */
 
 
+@file:Suppress("HttpUrlsUsage")
+
 package space.iseki.urikt
 
 val goJsonText = """
