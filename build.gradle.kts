@@ -7,14 +7,13 @@
 
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.net.URI
-import java.util.*
 
 plugins {
     kotlin("multiplatform") version "2.2.21"
     kotlin("plugin.serialization") version "2.2.21"
     id("org.jetbrains.dokka") version "2.0.0"
     id("org.jetbrains.kotlinx.kover") version "0.9.1"
-    `maven-publish`
+    id("com.vanniktech.maven.publish") version "0.34.0"
     signing
 }
 
@@ -37,13 +36,11 @@ kotlin {
         browser()
         nodejs()
     }
-    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
-    wasmJs {
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class) wasmJs {
         browser()
         nodejs()
     }
-    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
-    wasmWasi {
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class) wasmWasi {
         nodejs()
     }
 
@@ -90,77 +87,51 @@ tasks.named("jvmTest") {
 
 signing {
     useGpgCmd()
-    sign(publishing.publications)
 }
 
-publishing {
-    repositories {
-        maven {
-            name = "Central"
-            afterEvaluate {
-                url = if (version.toString().endsWith("SNAPSHOT")) {
-                    // uri("https://s01.oss.sonatype.org/content/repositories/snapshots")
-                    uri("https://central.sonatype.com/repository/maven-snapshots/")
-                } else {
-                    // uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2")
-                    // uri("https://oss.sonatype.org/service/local/staging/deploy/maven2")
-                    uri("https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/")
-                }
-            }
-            credentials {
-                username = properties["ossrhUsername"]?.toString() ?: System.getenv("OSSRH_USERNAME")
-                password = properties["ossrhPassword"]?.toString() ?: System.getenv("OSSRH_PASSWORD")
+mavenPublishing {
+    publishToMavenCentral()
+
+    signAllPublications()
+
+    coordinates(group.toString(), "urikt", version.toString())
+
+    pom {
+        val projectUrl = "https://github.com/iseki0/urikt/blob/master/LICENSE"
+        description = "A library for URI parsing and building, in Kotlin multiplatform"
+        url = projectUrl
+        licenses {
+            license {
+                name = "MIT License"
+                url = "https://www.apache.org/licenses/LICENSE-2.0"
             }
         }
-    }
-    publications {
-        withType<MavenPublication> {
-            val pubName = name.replaceFirstChar { it.titlecase(Locale.getDefault()) }
-            val emptyJavadocJar by tasks.register<Jar>("emptyJavadocJar$pubName") {
-                archiveClassifier = "javadoc"
-                archiveBaseName = artifactId
+        developers {
+            developer {
+                id = "iseki0"
+                name = "iseki zero"
+                email = "iseki@iseki.space"
             }
-            artifact(emptyJavadocJar)
-            pom {
-                name = "PurlKt-${project.name}"
-                val projectUrl = "https://github.com/iseki0/urikt"
-                description = "A library for URI parsing and building, in Kotlin multiplatform"
-                url = projectUrl
-                licenses {
-                    license {
-                        name = "Apache-2.0"
-                        url = "https://www.apache.org/licenses/LICENSE-2.0"
-                    }
-                }
-                developers {
-                    developer {
-                        id = "iseki0"
-                        name = "iseki zero"
-                        email = "iseki@iseki.space"
-                    }
-                }
-                inceptionYear = "2025"
-                scm {
-                    connection = "scm:git:$projectUrl.git"
-                    developerConnection = "scm:git:$projectUrl.git"
-                    url = projectUrl
-                }
-                issueManagement {
-                    system = "GitHub"
-                    url = "$projectUrl/issues"
-                }
-                ciManagement {
-                    system = "GitHub"
-                    url = "$projectUrl/actions"
-                }
-            }
+        }
+        inceptionYear = "2025"
+        scm {
+            connection = "scm:git:$projectUrl.git"
+            developerConnection = "scm:git:$projectUrl.git"
+            url = projectUrl
+        }
+        issueManagement {
+            system = "GitHub"
+            url = "$projectUrl/issues"
+        }
+        ciManagement {
+            system = "GitHub"
+            url = "$projectUrl/actions"
         }
     }
 }
 
 dokka {
     dokkaSourceSets.configureEach {
-//        includes.from(rootProject.layout.projectDirectory.file("module.md"))
         sourceLink {
             localDirectory = project.layout.projectDirectory.dir("src").asFile
             val p =
@@ -177,20 +148,9 @@ dokka {
 }
 
 tasks.withType<Jar> {
-    if ("emptyJavadocJar" !in name) {
-        into("/") {
-            from(rootProject.projectDir.resolve("LICENSE"))
-        }
+    into("/") {
+        from(rootProject.projectDir.resolve("LICENSE"))
     }
-}
-
-val signingTasks = tasks.withType<Sign>()
-tasks.withType<AbstractPublishToMaven>().configureEach {
-    dependsOn(signingTasks)
-}
-
-signingTasks.configureEach {
-    dependsOn(tasks.withType<Jar>())
 }
 
 tasks.named("jvmJar") {
