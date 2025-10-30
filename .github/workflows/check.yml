@@ -1,0 +1,36 @@
+name: Check
+on:
+  push:
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ windows-latest, ubuntu-latest, macos-latest ]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version-file: '.java-version'
+          distribution: 'temurin'
+          server-id: github # Value of the distributionManagement/repository/id field of the pom.xml
+          settings-path: ${{ github.workspace }} # location for the settings.xml file
+      - name: Cache Konan
+        uses: actions/cache@v4
+        with:
+          enableCrossOsArchive: true
+          key: ${{ runner.os }}-gradle
+          path: |
+            ~/.konan
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-encryption-key: ${{ secrets.GradleEncryptionKey }} # openssl rand -base64 16
+          validate-wrappers: true
+          build-scan-publish: true
+          build-scan-terms-of-use-url: "https://gradle.com/terms-of-service"
+          build-scan-terms-of-use-agree: "yes"
+          gradle-version: wrapper
+      - name: Run check
+        run: ./gradlew check --stacktrace
