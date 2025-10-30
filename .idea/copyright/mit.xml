@@ -1,0 +1,6 @@
+<component name="CopyrightManager">
+  <copyright>
+    <option name="notice" value="SPDX-License-Identifier: MIT&#10;&#10;Copyright (c) &amp;#36;{today.year} iseki zero and all contributors&#10;Licensed under the MIT License. See LICENSE file for details." />
+    <option name="myName" value="mit" />
+  </copyright>
+</component>
