@@ -28,17 +28,47 @@ allprojects {
 kotlin {
     jvmToolchain(17)
     jvm {}
-//    js {
-//        browser()
-//    }
-
-    sourceSets {
-        jvmMain.configure {
-            dependencies {
-                implementation("com.squareup.okhttp3:okhttp:4.12.0")
-            }
-        }
+    js {
+        browser()
+        nodejs()
     }
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    wasmJs {
+        browser()
+        nodejs()
+    }
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    wasmWasi {
+        nodejs()
+    }
+
+    // Tier 1
+    macosX64()
+    macosArm64()
+    iosSimulatorArm64()
+    iosX64()
+    iosArm64()
+
+    // Tier 2
+    linuxX64()
+    linuxArm64()
+    watchosArm32()
+    watchosArm64()
+    watchosX64()
+    watchosSimulatorArm64()
+    tvosSimulatorArm64()
+    tvosX64()
+    tvosArm64()
+
+    // Tier 3
+    androidNativeArm32()
+    androidNativeArm64()
+    androidNativeX64()
+    androidNativeX86()
+    mingwX64()
+    watchosDeviceArm64()
+
+    applyDefaultHierarchyTemplate()
 }
 
 dependencies {

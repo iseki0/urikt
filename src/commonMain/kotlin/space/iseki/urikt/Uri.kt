@@ -170,6 +170,8 @@ internal fun String.unescape(range: IntRange): String {
         try {
             // Since UTF-8 is ASCII compatible, 37 is '%'
             if (ch == 37.toByte()) {
+                // workaround: IOBE doesn't throw in Kotlin/(JS, Wasm, Wasi)
+                if (i + 2 >= inBytes.size) throw IndexOutOfBoundsException()
                 val c1 = inBytes[i + 1].toInt().toChar()
                 val c2 = inBytes[i + 2].toInt().toChar()
                 outBytes[pos] = (hexToInt(c1) shl 4 or hexToInt(c2)).toByte()
