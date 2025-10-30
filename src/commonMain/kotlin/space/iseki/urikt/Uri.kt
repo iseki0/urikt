@@ -170,10 +170,12 @@ internal fun String.unescape(range: IntRange): String {
         try {
             // Since UTF-8 is ASCII compatible, 37 is '%'
             if (ch == 37.toByte()) {
-                // workaround: IOBE doesn't throw in Kotlin/(JS, Wasm, Wasi)
-                if (i + 2 >= inBytes.size) throw IndexOutOfBoundsException()
-                val c1 = inBytes[i + 1].toInt().toChar()
-                val c2 = inBytes[i + 2].toInt().toChar()
+                // workaround: https://youtrack.jetbrains.com/issue/KT-79239/K-Wasm-elementAt-extension-function-of-Array-PrimitiveArray-UnsignedArray-does-not-throw-IndexOutOfBoundException-on-incorrect
+                if (i + 2 >= inBytes.size) {
+                    throw IndexOutOfBoundsException("Incomplete percent encoding at end of input")
+                }
+                val c1 = inBytes.elementAt(i + 1).toInt().toChar()
+                val c2 = inBytes.elementAt(i + 2).toInt().toChar()
                 outBytes[pos] = (hexToInt(c1) shl 4 or hexToInt(c2)).toByte()
                 pos += 1
                 i += 3
