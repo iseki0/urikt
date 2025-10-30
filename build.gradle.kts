@@ -27,7 +27,7 @@ allprojects {
 }
 
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(21)
     jvm {
         compilerOptions {
             jvmTarget = JvmTarget.JVM_1_8
