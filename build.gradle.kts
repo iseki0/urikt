@@ -5,6 +5,7 @@
  * Licensed under the MIT License. See LICENSE file for details.
  */
 
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.net.URI
 import java.util.*
 
@@ -27,7 +28,11 @@ allprojects {
 
 kotlin {
     jvmToolchain(17)
-    jvm {}
+    jvm {
+        compilerOptions {
+            jvmTarget = JvmTarget.JVM_1_8
+        }
+    }
     js {
         browser()
         nodejs()
@@ -95,25 +100,16 @@ publishing {
             afterEvaluate {
                 url = if (version.toString().endsWith("SNAPSHOT")) {
                     // uri("https://s01.oss.sonatype.org/content/repositories/snapshots")
-                    uri("https://oss.sonatype.org/content/repositories/snapshots")
+                    uri("https://central.sonatype.com/repository/maven-snapshots/")
                 } else {
                     // uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2")
-                    uri("https://oss.sonatype.org/service/local/staging/deploy/maven2")
+                    // uri("https://oss.sonatype.org/service/local/staging/deploy/maven2")
+                    uri("https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/")
                 }
             }
             credentials {
                 username = properties["ossrhUsername"]?.toString() ?: System.getenv("OSSRH_USERNAME")
                 password = properties["ossrhPassword"]?.toString() ?: System.getenv("OSSRH_PASSWORD")
-            }
-        }
-        if (!System.getenv("GITHUB_TOKEN").isNullOrBlank()) {
-            maven {
-                name = "GitHubPackages"
-                url = URI.create("https://maven.pkg.github.com/iseki0/urikt")
-                credentials {
-                    username = System.getenv("GITHUB_ACTOR")!!
-                    password = System.getenv("GITHUB_TOKEN")!!
-                }
             }
         }
     }
@@ -188,3 +184,18 @@ tasks.withType<Jar> {
     }
 }
 
+val signingTasks = tasks.withType<Sign>()
+tasks.withType<AbstractPublishToMaven>().configureEach {
+    dependsOn(signingTasks)
+}
+
+signingTasks.configureEach {
+    dependsOn(tasks.withType<Jar>())
+}
+
+tasks.named("jvmJar") {
+    check(this is Jar)
+    manifest {
+        attributes("Automatic-Module-Name" to "space.iseki.urikt")
+    }
+}
